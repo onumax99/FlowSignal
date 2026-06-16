@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+*.local
+
+# Data (raw/processed は再生成可能なため追跡しない)
+data/raw/
+data/processed/
+data/flowsignal.db
+
+# Notebook / IDE
+.ipynb_checkpoints/
+.vscode/
+.idea/
+.DS_Store
