@@ -3,26 +3,23 @@
 各種銘柄・市場の動きと時事ニュースから関連性を抽出し、**日本株の翌営業日の値動き方向**（UP / FLAT / DOWN ＋確信度）を予測する PoC。市場データの時系列ML と、ニュースの LLM 分析を組み合わせるハイブリッド方式。
 
 - 要件定義: [docs/requirements.md](docs/requirements.md)
-- 現在のフェーズ: **M1（データ取得基盤）**
+- 開発ステータス / 引き継ぎ: [docs/STATUS.md](docs/STATUS.md)
+- 現在のフェーズ: **M2（テクニカルのみのベースライン ML）着手前**（M1 完了）
 
 > ⚠️ 個人投資の意思決定補助を目的とした実験的ツールです。予測の正確性・収益を保証しません。投資は自己責任で行ってください。
 
 ## セットアップ
 
-```bash
-# macOS / Linux
-python -m venv .venv && source .venv/bin/activate
+> 対応環境は **Windows（PoC）**。Python 3.13 での動作を前提とします。
 
+```powershell
 # Windows (PowerShell)
-#   python -m venv .venv ; .venv\Scripts\Activate.ps1
-# Windows (cmd)
-#   python -m venv .venv && .venv\Scripts\activate.bat
+python -m venv .venv ; .venv\Scripts\Activate.ps1
 
-pip install -e .            # 取得基盤のみ
+pip install -e .              # 取得基盤のみ
 # pip install -e ".[ml,app]"  # M2 以降（モデル・ダッシュボード）
 
-cp .env.example .env        # 必要に応じて J-Quants 等の認証情報を設定
-# Windows: copy .env.example .env
+copy .env.example .env        # 必要に応じて J-Quants 等の認証情報を設定
 ```
 
 > Windows の日本語環境（コンソールが cp932）で文字化け・`UnicodeEncodeError` が出る場合は、環境変数 `PYTHONUTF8=1` を設定するか Windows Terminal の利用を推奨します。
@@ -61,10 +58,10 @@ docs/requirements.md      要件定義書
 
 ## ロードマップ
 
-| | 内容 | 状態 |
+| ID | 内容 | 状態 |
 |---|---|---|
-| M1 | データ取得基盤 | 🚧 進行中 |
-| M2 | テクニカルのみのベースラインML（方向予測＋評価） | 未着手 |
+| M1 | データ取得基盤 | ✅ 完了 |
+| M2 | テクニカルのみのベースラインML（方向予測＋評価） | 🚧 着手前（設計合意済み） |
 | M3 | LLM ニュース特徴量の追加（改善幅を測定） | 未着手 |
 | M4 | バックテスト＋根拠説明 | 未着手 |
 | M5 | Streamlit ダッシュボード | 未着手 |
