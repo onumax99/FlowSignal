@@ -2,8 +2,9 @@
 
 各種銘柄・市場の動きと時事ニュースから関連性を抽出し、**日本株の翌営業日の値動き方向**（UP / FLAT / DOWN ＋確信度）を予測する PoC。市場データの時系列ML と、ニュースの LLM 分析を組み合わせるハイブリッド方式。
 
+- 🆕 引き継ぎブリーフ（新セッションはまずこれ）: [docs/handoff.md](docs/handoff.md)
 - 要件定義: [docs/requirements.md](docs/requirements.md)
-- 開発ステータス / 引き継ぎ: [docs/STATUS.md](docs/STATUS.md)
+- 開発ステータス / 詳細ログ: [docs/STATUS.md](docs/STATUS.md)
 - M2 評価レポート: [docs/m2-evaluation.md](docs/m2-evaluation.md)
 - 現在のフェーズ: **M2 完了 → M3（LLM ニュース特徴量）着手前**（M1・M2 完了）
 

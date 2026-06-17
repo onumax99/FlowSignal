@@ -1,7 +1,8 @@
 # FlowSignal 開発ステータス / ハンドオフ
 
-> このファイルは別セッション・別マシンへの引き継ぎ用。プロジェクトの現状・環境仕様・計画・タスク処理状況を一元化する。
-> 関連: 要件定義 [requirements.md](requirements.md) / 概要 [../README.md](../README.md) / 予測アプローチ検討メモ [prediction-design.md](prediction-design.md)
+> このファイルは別セッション・別マシンへの引き継ぎ用の**詳細ログ**（現状・環境仕様・計画・タスク処理状況）。
+> 🆕 **新セッションはまず [handoff.md](handoff.md)（コールドスタート用の集約ブリーフ）を読むと速い。**
+> 関連: 要件定義 [requirements.md](requirements.md) / 概要 [../README.md](../README.md) / 予測アプローチ検討メモ [prediction-design.md](prediction-design.md) / M2 結果 [m2-evaluation.md](m2-evaluation.md)
 
 - 最終更新: 2026-06-17
 - 現在フェーズ: **M2 完了 → M3（LLM ニュース特徴量）着手前**（M2 評価レポート: [m2-evaluation.md](m2-evaluation.md)）
@@ -90,8 +91,9 @@ tests/test_labels.py          labels.py の単体テスト（3クラス判定・
 tests/test_build.py           build.py の統合テスト（結合整合・市場ブロードキャスト）
 tests/test_baseline.py        baseline.py の単体テスト（既定lgbm・NaN対応・再現性）
 tests/test_eval.py            eval の単体テスト（日付境界分割・ベースライン・McNemar）
+docs/handoff.md               新セッション向けコールドスタート・ブリーフ（集約版）
 docs/requirements.md          要件定義書
-docs/STATUS.md                本ファイル（ハンドオフ）
+docs/STATUS.md                本ファイル（詳細ログ）
 docs/prediction-design.md     予測アプローチ検討メモ（lead-lag / 較正 / クロスセクション、未確定）
 docs/m2-evaluation.md         M2 評価レポート（ベースライン比較＋有意性の結論）
 pyproject.toml                依存定義（core / ml / app / dev extras。pytest 設定も同梱）
