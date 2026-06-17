@@ -6,7 +6,7 @@
 - 要件定義: [docs/requirements.md](docs/requirements.md)
 - 開発ステータス / 詳細ログ: [docs/STATUS.md](docs/STATUS.md)
 - M2 評価レポート: [docs/m2-evaluation.md](docs/m2-evaluation.md)
-- 現在のフェーズ: **M2 完了 → M3（LLM ニュース特徴量）着手前**（M1・M2 完了）
+- 現在のフェーズ: **M2 完了 → 次は M2.5（HOLD＋較正・クロスセクション・評価の honest 化, API 不要）**。その後 M3（LLM ニュース特徴量）
 
 > ⚠️ 個人投資の意思決定補助を目的とした実験的ツールです。予測の正確性・収益を保証しません。投資は自己責任で行ってください。
 
@@ -81,7 +81,8 @@ docs/                     requirements / STATUS / prediction-design / m2-evaluat
 | ID | 内容 | 状態 |
 |---|---|---|
 | M1 | データ取得基盤 | ✅ 完了 |
-| M2 | テクニカルのみのベースラインML（方向予測＋評価） | ✅ 完了（3ベースラインに有意） |
-| M3 | LLM ニュース特徴量の追加（改善幅を測定） | 🚧 着手前 |
+| M2 | テクニカルのみのベースラインML（方向予測＋評価） | ✅ 完了（弱ベースラインに accuracy 有意。多数派/macro-F1 比較は M2.5 で追加） |
+| M2.5 | HOLD＋確率較正・クロスセクション化・評価の honest 化（API 不要） | 🚧 次の本命 |
+| M3 | LLM ニュース特徴量・適時開示(TDnet)の追加（改善幅を測定） | 未着手 |
 | M4 | バックテスト＋根拠説明 | 未着手 |
 | M5 | Streamlit ダッシュボード | 未着手 |
