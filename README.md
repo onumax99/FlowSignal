@@ -51,11 +51,14 @@ python scripts/fetch_daily.py --start 2024-01-01 --source jquants
 ### M2: ベースライン学習・評価
 
 ```powershell
-# テクニカルのみで翌日方向を予測し、3ベースラインと比較（日付境界 walk-forward）
+# テクニカルのみで翌日方向を予測し、4ベースライン（多数派＋弱3種）と比較（日付境界 walk-forward）
 python scripts/train_baseline.py
 
 # クラス不均衡対策・固定閾値などの切替も可能
 python scripts/train_baseline.py --class-weight balanced --label-mode fixed
+
+# 確率較正(Platt)＋HOLD（確信度で棄権）のカバレッジ×macro-F1 分析
+python scripts/train_baseline.py --calibrate --class-weight balanced
 ```
 
 結果の解釈は [docs/m2-evaluation.md](docs/m2-evaluation.md) を参照。
@@ -82,7 +85,7 @@ docs/                     requirements / STATUS / prediction-design / m2-evaluat
 |---|---|---|
 | M1 | データ取得基盤 | ✅ 完了 |
 | M2 | テクニカルのみのベースラインML（方向予測＋評価） | ✅ 完了（honest 化済み: accuracy では多数派に負け、macro-F1 で balanced が全ベースラインに有意） |
-| M2.5 | HOLD＋確率較正・クロスセクション化・評価の honest 化（API 不要） | 🚧 進行中（honest 化 ✅／残: HOLD＋較正・クロスセクション） |
+| M2.5 | HOLD＋確率較正・クロスセクション化・評価の honest 化（API 不要） | 🚧 進行中（honest 化・HOLD＋較正 ✅／残: クロスセクション） |
 | M3 | LLM ニュース特徴量・適時開示(TDnet)の追加（改善幅を測定） | 未着手 |
 | M4 | バックテスト＋根拠説明 | 未着手 |
 | M5 | Streamlit ダッシュボード | 未着手 |

@@ -17,8 +17,8 @@
 
 - **何を作っているか**: 日本株の**翌営業日の値動き方向**（UP / FLAT / DOWN ＋確信度）を、
   市場データの時系列 ML と LLM ニュース分析のハイブリッドで予測する PoC。対応環境は **Windows 一本化**。
-- **現在地**: **M1・M2 完了、M2.5 の評価 honest 化（多数派＋全 macro-F1＋日付ブロック bootstrap）も完了。
-  残る M2.5 は HOLD＋確率較正・クロスセクション（API 不要）、その後 M3（LLM ニュース特徴量）。**
+- **現在地**: **M1・M2 完了、M2.5 の評価 honest 化（多数派＋全 macro-F1＋bootstrap）と HOLD＋確率較正も完了。
+  残る M2.5 はクロスセクション（相対）予測（要 universe 拡大, API 不要）、その後 M3（LLM ニュース特徴量）。**
 - **M2 の結論（honest・M2.5 で確定）**: **accuracy では多数派(always-FLAT 43.4%)に有意に負ける**
   （accuracy は不均衡 3 クラスでは方向 skill を測れない）。本命の **macro-F1 では balanced(0.372)が
   全ベースライン（最強 prev-direction 0.345 含む）に日付ブロック bootstrap で有意**＝**方向 skill は弱いが本物**
@@ -146,9 +146,10 @@ prediction-design §4 の「①②最優先」と M2 の評価限界（§4）に
 - ✅ **評価の honest 化（完了 2026-06-18）**: `eval/baselines.py` に **always-majority(FLAT)**（fold ごとの train 最頻クラス）を追加、
   全ベースラインの **macro-F1 を併記**、`eval/metrics.block_bootstrap_macro_f1`（**日付ブロック** bootstrap）で CI・差を算出。
   結論＝accuracy では多数派に負け、macro-F1 では balanced が全ベースラインに有意（既定は prev と並ぶ）。→ [m2-evaluation.md](m2-evaluation.md) 反映済み。
-- 🚧 **HOLD（確信度で棄権）＋確率較正（Platt/isotonic, 小標本は Platt 既定）**: 高確信日だけ予測し、
-  **カバレッジ×macro-F1 のトレードオフ曲線**で評価（棄権すると covered set が FLAT に偏り accuracy は自動で上がるため・クラス構成も併記）。
-  較正・閾値・k・class_weight は train/validation で凍結（test で選ばない）。
+- ✅ **HOLD（確信度で棄権）＋確率較正（Platt）— 完了 2026-06-18・honest 結果は negative**:
+  各 fold の train 末尾を validation に Platt 較正＋閾値選択（リーク無し・`--calibrate`、`eval/calibration.py`・`eval/hold.py`）。
+  結果＝**較正の argmax が FLAT に collapse し、HOLD は accuracy を上げるが macro-F1 は上げない**（covered set が ~100% FLAT）。
+  指摘⑤を実データで確認。詳細 [m2-evaluation.md](m2-evaluation.md) §5。
 - **クロスセクション（相対）予測**: 市場共通要因(β)を外し「同日内でどれが相対的に強いか」を当てる。
   銘柄固有シグナルが学習しやすい。**評価は 3 クラス accuracy/macro-F1 でなく日次 rank IC / top-k−bottom-k スプレッド**。
   15 銘柄では断面が薄く rank IC がノイジーなので **universe 拡大（15→30+）はクロスセクション化の前提条件**（前倒し必須・API 不要）。
@@ -201,8 +202,9 @@ prediction-design §4 の「①②最優先」と M2 の評価限界（§4）に
 - 🚨 **【最重要・M3 ブロッカー】ニュース履歴が無い**: `data/news.py` は RSS のみで過去アーカイブを返さない。
   M3 の「M2 と同じ walk-forward で改善幅測定」には過去ニュース/開示が要る。**設計前にデータ実在性を決着**
   （forward 限定評価 or TDnet 等の履歴ソース確保）。→ §5 M3 の「着手前の最重要確認」。
-- ✅ **M2 評価の honest 化（M2.5 で完了 2026-06-18）**: 多数派ベースライン＋全 macro-F1＋日付ブロック bootstrap を実装。
-  結論＝accuracy では多数派に負ける／macro-F1 では balanced が全ベースラインに有意（既定は prev と並ぶ）。→ [m2-evaluation.md](m2-evaluation.md)「限界・追加検証」。
+- ✅ **M2 評価の honest 化＋HOLD（M2.5 で完了 2026-06-18）**: 多数派ベースライン＋全 macro-F1＋日付ブロック bootstrap、
+  さらに Platt 較正＋HOLD を実装。結論＝accuracy では多数派に負ける／macro-F1 では balanced が全ベースラインに有意（既定は prev と並ぶ）／
+  **較正・HOLD では macro-F1 は動かない**（FLAT collapse）。→ [m2-evaluation.md](m2-evaluation.md) §5・「限界・追加検証」。
 - **閾値 k** は分布を見て調整可（現状 k=0.5 で FLAT 43%）。`--label-mode fixed` でも比較できる。
 - **対象銘柄**は大型15銘柄（universe.yaml）。クロスセクション/ lead-lag を狙うなら銘柄数拡大が効く（M2.5 で前倒し可・API 不要）。
 - **predictions テーブルの PK=(date,code)** はベースラインと本モデルで上書き衝突しうる。DB 保存を本格化するなら
