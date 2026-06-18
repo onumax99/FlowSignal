@@ -81,8 +81,8 @@ docs/                     requirements / STATUS / prediction-design / m2-evaluat
 | ID | 内容 | 状態 |
 |---|---|---|
 | M1 | データ取得基盤 | ✅ 完了 |
-| M2 | テクニカルのみのベースラインML（方向予測＋評価） | ✅ 完了（弱ベースラインに accuracy 有意。多数派/macro-F1 比較は M2.5 で追加） |
-| M2.5 | HOLD＋確率較正・クロスセクション化・評価の honest 化（API 不要） | 🚧 次の本命 |
+| M2 | テクニカルのみのベースラインML（方向予測＋評価） | ✅ 完了（honest 化済み: accuracy では多数派に負け、macro-F1 で balanced が全ベースラインに有意） |
+| M2.5 | HOLD＋確率較正・クロスセクション化・評価の honest 化（API 不要） | 🚧 進行中（honest 化 ✅／残: HOLD＋較正・クロスセクション） |
 | M3 | LLM ニュース特徴量・適時開示(TDnet)の追加（改善幅を測定） | 未着手 |
 | M4 | バックテスト＋根拠説明 | 未着手 |
 | M5 | Streamlit ダッシュボード | 未着手 |

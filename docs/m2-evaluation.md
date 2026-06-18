@@ -1,11 +1,12 @@
 # FlowSignal M2 評価レポート（テクニカルのみベースライン）
 
 > テクニカル＋マーケット＋カレンダー特徴量のみで翌営業日 3 クラス方向を予測し、
-> 3 ベースラインと比較した結果。**M2 の完了条件（ベースライン比較＋有意性）を満たす**。
+> **4 ベースライン（多数派＋弱 3 種）**と accuracy / macro-F1 の両指標で比較した結果。
+> **M2 の完了条件を満たし、M2.5 の honest 化（多数派・全 macro-F1・bootstrap）まで反映済み**。
 > 関連: [STATUS.md](STATUS.md) §6 / [prediction-design.md](prediction-design.md) / [requirements.md](requirements.md) §9
 
-- 作成: 2026-06-17 ／ 更新: 2026-06-18（**adjusted close 化に伴う再実行**＝下記の数値は分割・配当調整後）
-- 再現: `python scripts/train_baseline.py`（balanced 版は `--class-weight balanced`）
+- 作成: 2026-06-17 ／ 更新: 2026-06-18（**adjusted close 再実行＋ honest 化**＝多数派ベースライン・全 macro-F1・日付ブロック bootstrap を追加）
+- 再現: `python scripts/train_baseline.py`（balanced 版は `--class-weight balanced`、bootstrap 反復は `--n-boot`）
 
 ---
 
@@ -26,26 +27,46 @@
 
 | 設定 | accuracy | macro-F1 | fold acc (mean±std) |
 |---|---|---|---|
-| 既定（class_weight=none） | **41.0%** | 34.9% | 41.0 ± 2.4% |
-| balanced（class_weight=balanced） | 39.6% | **37.2%** | 39.6 ± 2.6% |
-| ベースライン: prev-direction | 36.3% | – | – |
-| ベースライン: random | 33.0% | – | – |
-| ベースライン: always-up | 29.8% | – | – |
+| 既定（class_weight=none） | 41.0% | 0.349 | 41.0 ± 2.4% |
+| balanced（class_weight=balanced） | 39.6% | **0.372** | 39.6 ± 2.6% |
+| ベースライン: always-majority(FLAT) | **43.4%** | 0.202 | – |
+| ベースライン: prev-direction | 36.3% | 0.345 | – |
+| ベースライン: random | 33.0% | 0.326 | – |
+| ベースライン: always-up | 29.8% | 0.153 | – |
 
-> ⚠️ **多数派（always-FLAT）ベースラインが未掲載**。FLAT は学習テーブル全体で 43.0%（OOS でも概ね同水準）であり、
-> **「常に FLAT」だけで accuracy ≈ 43% に達する＝モデルの 41.0% はこれを上回らない見込み**。下表の有意性は
-> あくまで**弱いベースライン（always-up / random / prev-direction）に対する accuracy** の話である。
-> また**ベースラインの macro-F1 が未算出**（「–」）のため、方向 skill の実指標で勝っているかは本レポートでは未確認。
-> → 追加対応は「[限界・追加検証](#限界追加検証要対応未実施)」を参照。
+> **指標で勝者が入れ替わる（honest 比較・M2.5 で多数派＋全 macro-F1 を追加）**:
+> - **accuracy では多数派(always-FLAT 43.4%)が最強**。モデルは既定 41.0%・balanced 39.6% で
+>   **多数派に負ける**（McNemar でも多数派が有意に上）。M2 当初の「accuracy で有意」は**弱ベースライン限定**だった。
+> - **macro-F1（方向 skill の本命指標）では多数派は 0.202 と最弱**。モデルは全ベースラインを上回るが、
+>   既定 0.349 は最強の macro-F1 baseline である prev-direction(0.345)と**統計的に並ぶ（差は有意でない）**。
+>   **balanced 0.372 は prev-direction 含む全ベースラインに有意**（下記 bootstrap）。
 
 ### McNemar 検定（accuracy の有意差, pooled OOS）
 
 | 比較 | 既定 | balanced |
 |---|---|---|
-| モデル vs prev-direction | stat=74.0, **p=7.9e-18** | stat=35.3, **p=2.9e-09** |
-| モデル vs always-up | stat=331, **p=4.6e-74** | stat=286, **p=3.5e-64** |
+| モデル vs always-majority | stat=35.0, **p=3.2e-09**（多数派優位） | stat=58.7, **p=1.8e-14**（多数派優位） |
+| モデル vs prev-direction | stat=74.0, **p=7.9e-18**（モデル優位） | stat=35.3, **p=2.9e-09**（モデル優位） |
+| モデル vs always-up | stat=331, **p=4.6e-74**（モデル優位） | stat=286, **p=3.5e-64**（モデル優位） |
 
-→ **3 ベースラインすべてに対し、accuracy で統計的に有意に上回る**（p ≪ 0.001）。
+→ accuracy では **多数派に有意に負け**、弱 2 種には有意に勝つ。**accuracy は不均衡 3 クラスでは方向 skill を測れない**（多数派が最強）。
+
+### macro-F1 の有意性（日付ブロック bootstrap, n_boot=2000）
+
+McNemar は accuracy 専用なので、本命指標 macro-F1 は**日付ブロック bootstrap**（5 fold ではなく**日**を再標本化）で
+95%CI と model−baseline の差 Δ を出す。**Δ の CI 下限 > 0 で有意**。
+
+| 系列 | macro-F1 [95%CI] | Δ vs 既定 | Δ vs balanced |
+|---|---|---|---|
+| model（既定） | 0.349 [0.337, 0.360] | – | – |
+| model（balanced） | 0.372 [0.361, 0.383] | – | – |
+| prev-direction | 0.345 [0.335, 0.356] | +0.004 [−0.012, +0.019] **有意差なし** | +0.027 [+0.010, +0.042] **有意** |
+| random | 0.326 [0.319, 0.334] | +0.022 [+0.008, +0.035] 有意 | +0.045 [+0.032, +0.059] 有意 |
+| always-majority | 0.202 [0.198, 0.206] | +0.147 有意 | +0.170 有意 |
+| always-up | 0.153 [0.147, 0.159] | +0.196 有意 | +0.219 有意 |
+
+→ **balanced は全ベースライン（最強の prev-direction 含む）に macro-F1 で有意**。既定は prev-direction と並ぶ。
+**方向 skill は「弱いが本物」**＝最強 baseline 比 Δ≈+0.027（balanced）。小さいが CI が 0 を外す。
 
 ### per-class（pooled OOS, recall）
 
@@ -57,43 +78,41 @@
 
 ## 3. 解釈（正直な評価）
 
-- **有意に勝つが edge は小さい。** 既定設定は accuracy で全ベースラインを有意に上回るものの、
-  その多くは **FLAT（多数派 43%）に寄せること**で得た上積み。UP/DOWN の recall は低く、
-  **方向当ての真の skill は弱い**。これは設計文書（[prediction-design.md](prediction-design.md) §3、
+- **accuracy では多数派に負ける。** モデル accuracy（既定 41.0% / balanced 39.6%）は always-FLAT(43.4%)を
+  下回り、McNemar でも多数派が有意に上。**accuracy は不均衡 3 クラスでは方向 skill を測れない**（多数派が最強）。
+  M2 当初の「accuracy で有意」は弱ベースライン限定の主張だった。これは設計文書（[prediction-design.md](prediction-design.md) §3、
   [requirements.md](requirements.md) 期待値の前提）の「日次・大型株はほぼ効率的」という想定と整合。
-- **accuracy だけ見ると過大評価になる。** balanced にすると accuracy は下がるが macro-F1 と
-  UP/DOWN recall が上がる。**macro-F1（35〜37%）が方向 skill の実力**で、改善余地が大きい。
+- **macro-F1 で見ると skill は「弱いが本物」。** 本命指標 macro-F1 では多数派は 0.202 と最弱。
+  **balanced(0.372)は最強 baseline の prev-direction(0.345)を含む全ベースラインに日付ブロック bootstrap で有意**
+  （Δ≈+0.027, CI[+0.010,+0.042]＝0 を外す）。既定(0.349)は prev-direction と統計的に並ぶ。edge は小さいが、リークを排した上で残る本物の差。
+- **balanced を本命設定とする。** accuracy は下がるが macro-F1・UP/DOWN recall が上がり、honest 指標で全ベースライン超え。改善余地は大きい。
 - **効いているのはテクニカルよりマーケット状態。** 重要度上位は vix_level・ret_usdjpy・
   ret_topix・ret_nikkei・chg_vix・米指数リターンが席巻。自前テクニカルは hv20/出来高系がかろうじて続く程度で、
   RSI/MACD/SMA乖離は下位。→ テクニカルの作り込みは収穫逓減という想定を裏づけ。
 
 ## 限界・追加検証
 
-本レポートの「accuracy で 3 ベースラインに有意」という結論には、以下の限界がある。
-**#4（分割・配当調整）は解決済み（2026-06-18・上表は調整後データで再実行済み）。#1〜#3 は M2.5 で対応する。**
+当初レポートの限界（#1 多数派ベースライン欠落 / #2 全 macro-F1 未算出 / #3 macro-F1 の有意性検定なし /
+#4 分割・配当未調整）は **すべて解決済み（2026-06-18・上表に反映）**:
 
-1. **多数派（always-FLAT）ベースラインの欠落**: 3 クラス不均衡で最も標準的な trivial baseline が比較表に無い。
-   FLAT 43.0% に対しモデル accuracy 41.0% なので、**モデルは accuracy では多数派予測器を上回らない見込み**。
-   「有意に勝つ」は弱ベースライン限定の主張である点を明示する。
-2. **ベースラインの macro-F1 未算出（指標で強弱が逆転）**: 方向 skill の実指標（macro-F1）でベースラインと比較していない。
-   概算では **always-FLAT の macro-F1 ≈0.20（accuracy では最強だが macro-F1 では最弱の strawman）/ random-uniform ≈0.33 /
-   prev-direction ≈0.33〜0.36（macro-F1 の本当の対戦相手）**。モデル既定 0.351 は **prev-direction に負け得る**。
-   accuracy 側で弱ベースラインに勝ったのと対称に、macro-F1 で「多数派に勝った」と言っても中身は薄い。**全ベースラインの macro-F1 を併記**し、指標ごとに対称評価する。
-3. **macro-F1 の有意性検定が無い**: McNemar は accuracy 専用。本命指標である macro-F1 については、
-   **日次（または連続週）ブロックの block bootstrap で信頼区間**を出し、ベースラインを超えるかをリークなく検証する。
-   再標本化の単位は**日（同一日の銘柄間相関を保つ 1 ブロック）であって 5 fold ではない**（fold を resample すると単位が 5 個で CI が不安定）。
-4. **✅ 株価の分割・配当調整（解決済み・2026-06-18）**: `data/prices.py` を yfinance `auto_adjust=True`（adjusted close）に切替え、
-   5 年データ再取得＋ M2 を再実行して上表に反映。生 `Close` 時代の分割アーティファクト（分割日の偽の極端リターン、
-   hv20 経由のラベル閾値の歪み）を除去。集計指標の変化は小（既定 accuracy 41.2→41.0%・macro-F1 35.1→34.9%、
-   balanced 39.0→39.6%・36.9→37.2%）で**結論は不変**だが、データは健全化。J-Quants 経路は未対応（`prices.py` の TODO 参照）。
+1. ✅ **多数派ベースライン**: `eval/baselines.py` に `always-majority(FLAT)` を追加。多数派は**各 fold の train 最頻クラス**
+   （test を見ないリーク無し）。accuracy 43.4% でモデルを上回り、「accuracy で有意」は弱ベースライン限定だったと確認。
+2. ✅ **全ベースラインの macro-F1 併記**: always-majority 0.202 / prev 0.345 / random 0.326 / always-up 0.153。
+   accuracy と逆に多数派が最弱・prev-direction が最強、と指標で強弱が入れ替わる。
+3. ✅ **macro-F1 の有意性検定**: `eval/metrics.block_bootstrap_macro_f1`（**日付ブロック** bootstrap・5 fold ではない）で
+   CI と差を算出。balanced は全ベースラインに有意、既定は prev-direction と並ぶ（上表）。
+4. ✅ **株価の分割・配当調整**: `data/prices.py` を yfinance `auto_adjust=True`（adjusted close）に切替＋再取得・再実行。
+   集計指標の変化は小（既定 accuracy 41.2→41.0%・macro-F1 35.1→34.9%、balanced 39.0→39.6%・36.9→37.2%）で結論は不変だがデータは健全化。
 
-→ 追加対応: ① `eval/baselines.py` に `always-majority(FLAT)` を追加 ② 全ベースラインの macro-F1 を表に併記
-③ macro-F1 の bootstrap CI を算出（①〜③は M2.5 で実施）／ ④ `data/prices.py` を adjusted close に切替えて全数値を再実行（**完了 2026-06-18**）。
+→ 残課題（M3 以降）: J-Quants 経路の adjusted 化（`prices.py` TODO）、確率較正＋HOLD のカバレッジ評価、クロスセクション化（要 universe 拡大）。
 
 ## 4. M2 の結論と M3 への示唆
 
-- **M2 完了条件は達成**: テクニカルのみで方向予測し、3 ベースラインと比較・有意性確認まで実施。
+- **M2 完了条件は達成＋ M2.5 honest 化まで実施**: テクニカルのみで方向予測し、4 ベースライン（多数派含む）と
+  accuracy / macro-F1 の両指標で比較・有意性確認（McNemar＋日付ブロック bootstrap）まで完了。
   パイプライン（取得→特徴量→ラベル→学習→walk-forward 評価）はリーク管理込みで通る。
+- **honest な結論**: accuracy では多数派に負ける（accuracy は方向 skill を測れない）。macro-F1 では
+  **balanced が全ベースライン（最強 prev-direction 含む）に有意**＝**方向 skill は弱いが本物**（最強比 Δ≈+0.027）。
 - **精度を上げる次の一手はモデルいじりではない**（[prediction-design.md](prediction-design.md) §4）:
   1. **HOLD（確信度で棄権）＋確率較正** — 高確信日だけ予測し実用精度を上げる（低コスト・最優先）
   2. **クロスセクション（相対）予測** — 市場共通要因を外し銘柄固有シグナルを学習しやすくする

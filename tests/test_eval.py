@@ -6,8 +6,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from flowsignal.eval.baselines import baseline_predictions
-from flowsignal.eval.metrics import classification_metrics, mcnemar_test
+from flowsignal.eval.baselines import baseline_predictions, majority_class
+from flowsignal.eval.metrics import (
+    block_bootstrap_macro_f1,
+    classification_metrics,
+    mcnemar_test,
+)
 from flowsignal.eval.split import split_masks, walk_forward_date_splits
 from flowsignal.features.labels import LABEL_CLASSES
 
@@ -130,3 +134,87 @@ def test_mcnemar_detects_clear_improvement():
     res = mcnemar_test(y_true, model, base)
     assert res["n10"] == 100 and res["n01"] == 0
     assert res["pvalue"] < 0.01
+
+
+# --- majority baseline -------------------------------------------------------
+
+
+def test_majority_class_picks_mode():
+    assert majority_class(["FLAT", "FLAT", "UP", "DOWN", "FLAT"]) == "FLAT"
+
+
+def test_majority_class_tie_breaks_by_class_order():
+    # DOWN と UP が同数 → LABEL_CLASSES 先頭の DOWN を決定的に返す
+    assert majority_class(["DOWN", "UP"]) == "DOWN"
+
+
+def test_majority_class_ignores_nan():
+    assert majority_class(pd.Series(["UP", "UP", np.nan, "FLAT"])) == "UP"
+
+
+# --- macro-F1 block bootstrap ------------------------------------------------
+
+
+def _boot_panel(n_days=40, codes=("AAA", "BBB"), seed=0):
+    rng = np.random.default_rng(seed)
+    dates = pd.bdate_range("2024-01-01", periods=n_days)
+    frames = [
+        pd.DataFrame(
+            {"date": dates, "code": c, "label": rng.choice(LABEL_CLASSES, size=n_days)}
+        )
+        for c in codes
+    ]
+    return pd.concat(frames, ignore_index=True)
+
+
+def test_bootstrap_point_matches_sklearn_macro_f1():
+    df = _boot_panel()
+    yt = df["label"].to_numpy()
+    yp = np.roll(yt, 1)  # 適当な予測（欠けるクラスがあっても sklearn と一致するか）
+    boot = block_bootstrap_macro_f1(yt, {"a": yp}, df["date"].to_numpy(), n_boot=50, seed=1)
+    assert boot["point"]["a"] == pytest.approx(
+        classification_metrics(yt, yp)["macro_f1"]
+    )
+
+
+def test_bootstrap_reproducible_with_seed():
+    df = _boot_panel()
+    yt = df["label"].to_numpy()
+    yp = np.roll(yt, 1)
+    b1 = block_bootstrap_macro_f1(yt, {"a": yp}, df["date"].to_numpy(), n_boot=100, seed=7)
+    b2 = block_bootstrap_macro_f1(yt, {"a": yp}, df["date"].to_numpy(), n_boot=100, seed=7)
+    assert b1["ci"]["a"] == b2["ci"]["a"]
+
+
+def test_bootstrap_ci_brackets_point():
+    df = _boot_panel()
+    yt = df["label"].to_numpy()
+    yp = np.roll(yt, 1)
+    boot = block_bootstrap_macro_f1(yt, {"a": yp}, df["date"].to_numpy(), n_boot=200, seed=3)
+    lo, hi = boot["ci"]["a"]
+    assert lo <= boot["point"]["a"] <= hi
+
+
+def test_bootstrap_perfect_beats_bad_significantly():
+    df = _boot_panel()
+    yt = df["label"].to_numpy()
+    perfect = yt.copy()
+    bad = np.full(len(yt), "FLAT")  # 多数派一定予測（macro-F1 は低い）
+    boot = block_bootstrap_macro_f1(
+        yt,
+        {"model": perfect, "bad": bad},
+        df["date"].to_numpy(),
+        reference="model",
+        n_boot=300,
+        seed=5,
+    )
+    d = boot["diff_vs_reference"]["vs"]["bad"]
+    assert d["ci_low"] > 0  # 差の CI 下限が 0 超 = 有意に上
+    assert d["p_one_sided"] == 0.0  # model ≤ bad となる resample は無い
+
+
+def test_bootstrap_blocks_length_mismatch_raises():
+    df = _boot_panel(n_days=10)
+    yt = df["label"].to_numpy()
+    with pytest.raises(ValueError):
+        block_bootstrap_macro_f1(yt, {"a": yt}, df["date"].to_numpy()[:-1], n_boot=10)
