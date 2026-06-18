@@ -75,10 +75,13 @@
 1. **多数派（always-FLAT）ベースラインの欠落**: 3 クラス不均衡で最も標準的な trivial baseline が比較表に無い。
    FLAT 43.0% に対しモデル accuracy 41.2% なので、**モデルは accuracy では多数派予測器を上回らない見込み**。
    「有意に勝つ」は弱ベースライン限定の主張である点を明示する。
-2. **ベースラインの macro-F1 未算出**: 方向 skill の実指標（macro-F1）でベースラインと比較していない。
-   random の macro-F1 は ≈0.33 とみられ、モデルの 35〜37% との差は薄い可能性が高い。**全ベースラインの macro-F1 を併記**する。
+2. **ベースラインの macro-F1 未算出（指標で強弱が逆転）**: 方向 skill の実指標（macro-F1）でベースラインと比較していない。
+   概算では **always-FLAT の macro-F1 ≈0.20（accuracy では最強だが macro-F1 では最弱の strawman）/ random-uniform ≈0.33 /
+   prev-direction ≈0.33〜0.36（macro-F1 の本当の対戦相手）**。モデル既定 0.351 は **prev-direction に負け得る**。
+   accuracy 側で弱ベースラインに勝ったのと対称に、macro-F1 で「多数派に勝った」と言っても中身は薄い。**全ベースラインの macro-F1 を併記**し、指標ごとに対称評価する。
 3. **macro-F1 の有意性検定が無い**: McNemar は accuracy 専用。本命指標である macro-F1 については、
-   **日付（fold）ブロック単位の bootstrap で信頼区間**を出し、ベースラインを超えるかをリークなく検証する。
+   **日次（または連続週）ブロックの block bootstrap で信頼区間**を出し、ベースラインを超えるかをリークなく検証する。
+   再標本化の単位は**日（同一日の銘柄間相関を保つ 1 ブロック）であって 5 fold ではない**（fold を resample すると単位が 5 個で CI が不安定）。
 
 → 追加対応: ① `eval/baselines.py` に `always-majority(FLAT)` を追加 ② 全ベースラインの macro-F1 を表に併記
 ③ macro-F1 の bootstrap CI を算出。これらを M2.5 で実施し、本レポートを更新する。
