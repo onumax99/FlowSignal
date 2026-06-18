@@ -34,13 +34,18 @@ def fetch_prices_yfinance(
     """
     import yfinance as yf
 
+    # auto_adjust=True: 分割・配当調整後の OHLC を返す（"Close" が調整後終値になる）。
+    # 生 Close だと株式分割日に偽の極端リターンが出て、ラベル/テクニカル特徴量や
+    # hv20 経由のボラ連動ラベル閾値を汚染する（→ docs/m2-evaluation.md 限界④）。
+    # 注: 調整後終値は将来の分割/配当で過去系列が遡及調整され、配当ぶんはごく軽い look-ahead を伴う
+    #     （リターンはトータルリターン化）。分割アーティファクト除去の効果が大きく PoC では許容する。
     raw = yf.download(
         tickers=yf_symbols,
         start=str(start),
         end=str(end) if end else None,
         interval="1d",
         group_by="ticker",
-        auto_adjust=False,
+        auto_adjust=True,
         progress=False,
         threads=True,
     )
@@ -152,6 +157,8 @@ class JQuantsClient:
                 columns=["date", "code", "open", "high", "low", "close", "volume"]
             )
 
+        # TODO(⑥): J-Quants も生 Close ではなく Adjustment*（分割調整後）列を使うべき。
+        # 現状 M2 は yfinance(auto_adjust=True) 経由のため未対応。認証環境で検証してから切替える。
         df = pd.DataFrame(records).rename(
             columns={
                 "Date": "date",

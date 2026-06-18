@@ -4,7 +4,7 @@
 > 3 ベースラインと比較した結果。**M2 の完了条件（ベースライン比較＋有意性）を満たす**。
 > 関連: [STATUS.md](STATUS.md) §6 / [prediction-design.md](prediction-design.md) / [requirements.md](requirements.md) §9
 
-- 作成: 2026-06-17
+- 作成: 2026-06-17 ／ 更新: 2026-06-18（**adjusted close 化に伴う再実行**＝下記の数値は分割・配当調整後）
 - 再現: `python scripts/train_baseline.py`（balanced 版は `--class-weight balanced`）
 
 ---
@@ -13,9 +13,9 @@
 
 | 項目 | 内容 |
 |---|---|
-| データ | 15銘柄 × 約5年（2021-07〜2026-06）/ 学習テーブル 17,985 行 |
+| データ | 15銘柄 × 約5年（2021-07〜2026-06）/ 学習テーブル 17,985 行。株価は **adjusted close（yfinance `auto_adjust=True`）**＝分割・配当調整後 |
 | 特徴量 | 24 列（テクニカル13＋マーケット7＋カレンダー4）。米系/FX は **t-1 overnight** に整合 |
-| ラベル | 翌日 close-to-close を 3 クラス。閾値 = **0.5×HV20（ボラ連動）**。分布 DOWN27.2 / FLAT43.0 / UP29.8% |
+| ラベル | 翌日 close-to-close を 3 クラス。閾値 = **0.5×HV20（ボラ連動）**。分布 DOWN27.0 / FLAT43.0 / UP30.0% |
 | モデル | LightGBM 4.6.0（seed=42 固定）。NaN はネイティブ処理 |
 | 検証 | **日付境界の walk-forward 5-fold**（同一日付の別銘柄が train/test をまたがない）/ pooled OOS n=15,000 |
 
@@ -26,14 +26,14 @@
 
 | 設定 | accuracy | macro-F1 | fold acc (mean±std) |
 |---|---|---|---|
-| 既定（class_weight=none） | **41.2%** | 35.1% | 41.2 ± 2.9% |
-| balanced（class_weight=balanced） | 39.0% | **36.9%** | 39.0 ± 2.2% |
+| 既定（class_weight=none） | **41.0%** | 34.9% | 41.0 ± 2.4% |
+| balanced（class_weight=balanced） | 39.6% | **37.2%** | 39.6 ± 2.6% |
 | ベースライン: prev-direction | 36.3% | – | – |
-| ベースライン: random | 33.1% | – | – |
-| ベースライン: always-up | 29.6% | – | – |
+| ベースライン: random | 33.0% | – | – |
+| ベースライン: always-up | 29.8% | – | – |
 
 > ⚠️ **多数派（always-FLAT）ベースラインが未掲載**。FLAT は学習テーブル全体で 43.0%（OOS でも概ね同水準）であり、
-> **「常に FLAT」だけで accuracy ≈ 43% に達する＝モデルの 41.2% はこれを上回らない見込み**。下表の有意性は
+> **「常に FLAT」だけで accuracy ≈ 43% に達する＝モデルの 41.0% はこれを上回らない見込み**。下表の有意性は
 > あくまで**弱いベースライン（always-up / random / prev-direction）に対する accuracy** の話である。
 > また**ベースラインの macro-F1 が未算出**（「–」）のため、方向 skill の実指標で勝っているかは本レポートでは未確認。
 > → 追加対応は「[限界・追加検証](#限界追加検証要対応未実施)」を参照。
@@ -42,8 +42,8 @@
 
 | 比較 | 既定 | balanced |
 |---|---|---|
-| モデル vs prev-direction | stat=80.9, **p=2.3e-19** | stat=25.0, **p=5.8e-07** |
-| モデル vs always-up | stat=352, **p=1.5e-78** | stat=269, **p=2.0e-60** |
+| モデル vs prev-direction | stat=74.0, **p=7.9e-18** | stat=35.3, **p=2.9e-09** |
+| モデル vs always-up | stat=331, **p=4.6e-74** | stat=286, **p=3.5e-64** |
 
 → **3 ベースラインすべてに対し、accuracy で統計的に有意に上回る**（p ≪ 0.001）。
 
@@ -51,9 +51,9 @@
 
 | クラス | 既定 recall | balanced recall |
 |---|---|---|
-| DOWN | 0.18 | 0.28 |
-| FLAT | 0.67 | 0.50 |
-| UP | 0.24 | 0.33 |
+| DOWN | 0.17 | 0.27 |
+| FLAT | 0.67 | 0.52 |
+| UP | 0.25 | 0.32 |
 
 ## 3. 解釈（正直な評価）
 
@@ -64,16 +64,16 @@
 - **accuracy だけ見ると過大評価になる。** balanced にすると accuracy は下がるが macro-F1 と
   UP/DOWN recall が上がる。**macro-F1（35〜37%）が方向 skill の実力**で、改善余地が大きい。
 - **効いているのはテクニカルよりマーケット状態。** 重要度上位は vix_level・ret_usdjpy・
-  ret_topix・ret_nikkei・chg_vix・米指数リターンが席巻し、自前テクニカル（RSI/MACD/SMA乖離）は下位。
-  → テクニカルの作り込みは収穫逓減という想定を裏づけ。
+  ret_topix・ret_nikkei・chg_vix・米指数リターンが席巻。自前テクニカルは hv20/出来高系がかろうじて続く程度で、
+  RSI/MACD/SMA乖離は下位。→ テクニカルの作り込みは収穫逓減という想定を裏づけ。
 
-## 限界・追加検証（要対応・未実施）
+## 限界・追加検証
 
-本レポートの「accuracy で 3 ベースラインに有意」という結論には、以下の限界がある。**いずれも M2.5 で対応する**
-（数値は再実行が必要なため本レポートには未反映）。
+本レポートの「accuracy で 3 ベースラインに有意」という結論には、以下の限界がある。
+**#4（分割・配当調整）は解決済み（2026-06-18・上表は調整後データで再実行済み）。#1〜#3 は M2.5 で対応する。**
 
 1. **多数派（always-FLAT）ベースラインの欠落**: 3 クラス不均衡で最も標準的な trivial baseline が比較表に無い。
-   FLAT 43.0% に対しモデル accuracy 41.2% なので、**モデルは accuracy では多数派予測器を上回らない見込み**。
+   FLAT 43.0% に対しモデル accuracy 41.0% なので、**モデルは accuracy では多数派予測器を上回らない見込み**。
    「有意に勝つ」は弱ベースライン限定の主張である点を明示する。
 2. **ベースラインの macro-F1 未算出（指標で強弱が逆転）**: 方向 skill の実指標（macro-F1）でベースラインと比較していない。
    概算では **always-FLAT の macro-F1 ≈0.20（accuracy では最強だが macro-F1 では最弱の strawman）/ random-uniform ≈0.33 /
@@ -82,12 +82,13 @@
 3. **macro-F1 の有意性検定が無い**: McNemar は accuracy 専用。本命指標である macro-F1 については、
    **日次（または連続週）ブロックの block bootstrap で信頼区間**を出し、ベースラインを超えるかをリークなく検証する。
    再標本化の単位は**日（同一日の銘柄間相関を保つ 1 ブロック）であって 5 fold ではない**（fold を resample すると単位が 5 個で CI が不安定）。
-4. **株価が分割・配当未調整（数値の信頼性に直結）**: `data/prices.py` は yfinance `auto_adjust=False`＋生 `Close`。
-   2021-2026 の大型株には分割があり、**分割日に偽の極端リターン**が出て一部行のラベル/特徴量が汚染される（hv20 経由でラベル閾値＝FLAT 帯も歪む）。
-   **adjusted close へ切替えて全数値を再実行**するまで、本表の値は分割アーティファクトを含む参考値。
+4. **✅ 株価の分割・配当調整（解決済み・2026-06-18）**: `data/prices.py` を yfinance `auto_adjust=True`（adjusted close）に切替え、
+   5 年データ再取得＋ M2 を再実行して上表に反映。生 `Close` 時代の分割アーティファクト（分割日の偽の極端リターン、
+   hv20 経由のラベル閾値の歪み）を除去。集計指標の変化は小（既定 accuracy 41.2→41.0%・macro-F1 35.1→34.9%、
+   balanced 39.0→39.6%・36.9→37.2%）で**結論は不変**だが、データは健全化。J-Quants 経路は未対応（`prices.py` の TODO 参照）。
 
 → 追加対応: ① `eval/baselines.py` に `always-majority(FLAT)` を追加 ② 全ベースラインの macro-F1 を表に併記
-③ macro-F1 の bootstrap CI を算出 ④ `data/prices.py` を adjusted close に切替えて全数値を再実行。これらを M2.5 で実施し、本レポートを更新する。
+③ macro-F1 の bootstrap CI を算出（①〜③は M2.5 で実施）／ ④ `data/prices.py` を adjusted close に切替えて全数値を再実行（**完了 2026-06-18**）。
 
 ## 4. M2 の結論と M3 への示唆
 
