@@ -82,9 +82,12 @@
 3. **macro-F1 の有意性検定が無い**: McNemar は accuracy 専用。本命指標である macro-F1 については、
    **日次（または連続週）ブロックの block bootstrap で信頼区間**を出し、ベースラインを超えるかをリークなく検証する。
    再標本化の単位は**日（同一日の銘柄間相関を保つ 1 ブロック）であって 5 fold ではない**（fold を resample すると単位が 5 個で CI が不安定）。
+4. **株価が分割・配当未調整（数値の信頼性に直結）**: `data/prices.py` は yfinance `auto_adjust=False`＋生 `Close`。
+   2021-2026 の大型株には分割があり、**分割日に偽の極端リターン**が出て一部行のラベル/特徴量が汚染される（hv20 経由でラベル閾値＝FLAT 帯も歪む）。
+   **adjusted close へ切替えて全数値を再実行**するまで、本表の値は分割アーティファクトを含む参考値。
 
 → 追加対応: ① `eval/baselines.py` に `always-majority(FLAT)` を追加 ② 全ベースラインの macro-F1 を表に併記
-③ macro-F1 の bootstrap CI を算出。これらを M2.5 で実施し、本レポートを更新する。
+③ macro-F1 の bootstrap CI を算出 ④ `data/prices.py` を adjusted close に切替えて全数値を再実行。これらを M2.5 で実施し、本レポートを更新する。
 
 ## 4. M2 の結論と M3 への示唆
 
