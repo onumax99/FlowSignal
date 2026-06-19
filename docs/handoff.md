@@ -189,6 +189,9 @@ M2.5 の 3 手法が negative だったため、**残るレバーは新情報の
   特徴量パイプラインの開発・デバッグ用（backtest 数値はリーク前提の参考値）と役割を分ける。
 - **成功基準を事前登録（pre-register）**: M2 で edge が薄い＋ hindsight リスクがあるため、着手前に合否を定義する。
   例「**材料のある日**条件で macro-F1 または rank IC の block-bootstrap CI 下限が prev-direction を上回る」。後から良い指標を選ばない。
+  🆕 **安全策（[m3-design.md](m3-design.md) §5.1 で確定）**: ① 結論は **positive / negative / inconclusive(検定力不足) の3値**（サンプル不足を negative と書かない）。
+  ② forward は **開封点（材料行数 N_min か評価日）を1点に事前固定し、それまで合否数値を見ない**（逐次のぞき見＝optional stopping で偽陽性が出るため）。
+  ③ 履歴は**配管検証のみ**でスコア分布に効く選択は履歴成績を見る前に凍結。⑤ クリーン判定は**カットオフ＋バッファ以降**に限定。
 - **TDnet 取り込みを M3 タスクに明示**: 要件 §6・prediction-design §4③ は **決算・開示(TDnet)の event-driven を
   差別化の本命**と位置づけるが、現状 universe.yaml / news.py に TDnet ソースが無い。`data/disclosure.py` 相当の
   **TDnet 取り込みを M3 の必須タスク**として追加し、汎用 RSS より優先する。
