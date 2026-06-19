@@ -78,6 +78,46 @@ def make_model(name: str = "lightgbm", *, seed: int = RANDOM_SEED, **overrides):
     raise ValueError(f"未知のモデル名: {name!r}（'lightgbm' または 'hist'）")
 
 
+def _lightgbm_regressor_defaults(seed: int) -> dict:
+    return dict(
+        objective="regression",
+        n_estimators=300,
+        learning_rate=0.05,
+        num_leaves=31,
+        subsample=0.8,
+        subsample_freq=1,
+        colsample_bytree=0.8,
+        reg_lambda=1.0,
+        min_child_samples=30,
+        random_state=seed,
+        n_jobs=-1,
+        verbose=-1,
+    )
+
+
+def make_regressor(name: str = "lightgbm", *, seed: int = RANDOM_SEED, **overrides):
+    """回帰モデルを生成する（クロスセクションの相対リターン予測用）。
+
+    分類器（make_model）と同じハイパラ思想・seed 固定。NaN ネイティブ対応。
+    """
+    key = name.lower()
+    if key in _LIGHTGBM_ALIASES:
+        from lightgbm import LGBMRegressor
+
+        params = _lightgbm_regressor_defaults(seed)
+        params.update(overrides)
+        return LGBMRegressor(**params)
+
+    if key in _HIST_ALIASES:
+        from sklearn.ensemble import HistGradientBoostingRegressor
+
+        params = _hist_defaults(seed)
+        params.update(overrides)
+        return HistGradientBoostingRegressor(**params)
+
+    raise ValueError(f"未知のモデル名: {name!r}（'lightgbm' または 'hist'）")
+
+
 def feature_importances(model, feature_names: list[str]) -> pd.Series:
     """学習済みモデルの特徴量重要度を降順 Series で返す（lightgbm 用）。"""
     if not hasattr(model, "feature_importances_"):

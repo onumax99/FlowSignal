@@ -17,13 +17,16 @@
 
 - **何を作っているか**: 日本株の**翌営業日の値動き方向**（UP / FLAT / DOWN ＋確信度）を、
   市場データの時系列 ML と LLM ニュース分析のハイブリッドで予測する PoC。対応環境は **Windows 一本化**。
-- **現在地**: **M1・M2 完了、M2.5 の評価 honest 化（多数派＋全 macro-F1＋bootstrap）と HOLD＋確率較正も完了。
-  残る M2.5 はクロスセクション（相対）予測（要 universe 拡大, API 不要）、その後 M3（LLM ニュース特徴量）。**
+- **現在地**: **M1・M2・M2.5（評価 honest 化＋HOLD/較正＋クロスセクション）すべて完了。
+  次は M3（LLM ニュース特徴量・初の Claude API 課金）。** universe は 30 銘柄に拡大済み。
 - **M2 の結論（honest・M2.5 で確定）**: **accuracy では多数派(always-FLAT 43.4%)に有意に負ける**
   （accuracy は不均衡 3 クラスでは方向 skill を測れない）。本命の **macro-F1 では balanced(0.372)が
   全ベースライン（最強 prev-direction 0.345 含む）に日付ブロック bootstrap で有意**＝**方向 skill は弱いが本物**
   （最強比 Δ≈+0.027, CI が 0 を外す）。既定(0.349)は prev-direction と並ぶ。重要度はマーケット/overnight 系が支配的。
-- **健全性**: `pytest` 全 50 件グリーン。`main` は `origin/main` と同期済み。リーク防止はテストで担保。
+- **M2.5 の結論（honest・3 手法とも negative）**: HOLD＋確率較正は **macro-F1 を動かせず**（較正の argmax が FLAT collapse）、
+  クロスセクション相対予測は **rank IC ≈ 0（CI が 0 跨ぎ・非有意）**。**価格・テクニカルの後処理/相対化では edge は作れない**ことを一貫確認
+  → 新情報（M3）が本命。
+- **健全性**: `pytest` 全 76 件グリーン。`main` は `origin/main` と同期済み。リーク防止はテストで担保。
 - **ゴールの考え方**: 「正確に当てる」ではなく「**ベースラインを有意に上回る傾きを、リークなく抽出できるか**」。
 
 ---
@@ -59,16 +62,17 @@ scikit-learn 1.9.0 / scipy 1.17.1 / yfinance 1.4.1。
 ## 2. アーキテクチャ & データ
 
 ```
-config/universe.yaml          銘柄15 / 指標6 / RSS2 の定義
+config/universe.yaml          銘柄30 / 指標6 / RSS2 の定義（M2.5 で 15→30 に拡大）
 src/flowsignal/
   config.py                   パス・.env・universe 読み込み
   data/                       取得層: prices(yf/J-Quants) / market / news(RSS) / storage(parquet+SQLite)
-  features/                   technical / market / labels / build
-  models/baseline.py          lightgbm 既定の薄いファクトリ
-  eval/                       split(日付境界WF) / baselines(3種) / metrics(+McNemar)
+  features/                   technical / market / labels / build / cross_section(M2.5)
+  models/baseline.py          lightgbm 分類器＋make_regressor(M2.5・回帰)
+  eval/                       split / baselines(+majority) / metrics(+bootstrap) / calibration / hold / cross_section_metrics
 scripts/fetch_daily.py        日次データ取得
-scripts/train_baseline.py     M2 学習〜評価の通し実行
-tests/                        pytest（リーク制御・評価ロジック）
+scripts/train_baseline.py     M2/honest化/HOLD の通し実行（--calibrate）
+scripts/train_cross_section.py クロスセクション相対予測（M2.5）
+tests/                        pytest 76 件（リーク制御・評価ロジック）
 ```
 
 データスキーマ（`data/raw`・`data/flowsignal.db`、いずれも git 管理外）:
@@ -140,9 +144,9 @@ pooled OOS n=15,000、日付境界 5-fold、ボラ連動ラベル k=0.5、株価
 
 ## 5. これからの計画
 
-### 次の本命: M2.5（HOLD＋較正・クロスセクション・評価の honest 化）★API 不要・最優先
-prediction-design §4 の「①②最優先」と M2 の評価限界（§4）に直接効く、課金ゼロの工程。
-**データもコストも重い M3 より先に、ここで無償の改善を積む。**
+### ✅ 完了: M2.5（HOLD＋較正・クロスセクション・評価の honest 化）★API 不要
+prediction-design §4 の「①②最優先」と M2 の評価限界（§4）に直接効く、課金ゼロの工程。**✅ M2.5 完了（2026-06-19）。**
+**データもコストも重い M3 より先に無償の改善を積んだ結果、3 手法とも negative＝価格の後処理では edge 無しと確定。**
 - ✅ **評価の honest 化（完了 2026-06-18）**: `eval/baselines.py` に **always-majority(FLAT)**（fold ごとの train 最頻クラス）を追加、
   全ベースラインの **macro-F1 を併記**、`eval/metrics.block_bootstrap_macro_f1`（**日付ブロック** bootstrap）で CI・差を算出。
   結論＝accuracy では多数派に負け、macro-F1 では balanced が全ベースラインに有意（既定は prev と並ぶ）。→ [m2-evaluation.md](m2-evaluation.md) 反映済み。
@@ -150,12 +154,14 @@ prediction-design §4 の「①②最優先」と M2 の評価限界（§4）に
   各 fold の train 末尾を validation に Platt 較正＋閾値選択（リーク無し・`--calibrate`、`eval/calibration.py`・`eval/hold.py`）。
   結果＝**較正の argmax が FLAT に collapse し、HOLD は accuracy を上げるが macro-F1 は上げない**（covered set が ~100% FLAT）。
   指摘⑤を実データで確認。詳細 [m2-evaluation.md](m2-evaluation.md) §5。
-- **クロスセクション（相対）予測**: 市場共通要因(β)を外し「同日内でどれが相対的に強いか」を当てる。
-  銘柄固有シグナルが学習しやすい。**評価は 3 クラス accuracy/macro-F1 でなく日次 rank IC / top-k−bottom-k スプレッド**。
-  15 銘柄では断面が薄く rank IC がノイジーなので **universe 拡大（15→30+）はクロスセクション化の前提条件**（前倒し必須・API 不要）。
+- ✅ **クロスセクション（相対）予測 — 完了 2026-06-19・honest 結果は negative**: universe を **30 銘柄**に拡大し、
+  目的＝翌日リターンの日次デミーン・特徴量＝日次 z-score・LightGBM 回帰で相対強弱を予測（`features/cross_section.py`・
+  `eval/cross_section_metrics.py`・`scripts/train_cross_section.py`）。結果＝**mean IC ≈ 0（-0.0024, 95%CI が 0 跨ぎ・非有意）、
+  ロングショート -4.7bp/Sharpe -0.65** で edge 無し。評価は rank IC / top-k−bottom-k。詳細 [m2-evaluation.md](m2-evaluation.md) §6。
 
-### その後の本命: M3（LLM ニュース特徴量・適時開示）
+### 次の本命: M3（LLM ニュース特徴量・適時開示）
 要件 §8.2 / prediction-design §3・§4③ を踏まえた具体化。**ここで初めて Claude API が課金対象**（M1/M2/M2.5 は無料）。
+M2.5 の 3 手法が negative だったため、**残るレバーは新情報のみ＝M3 がこの PoC の正念場**。
 
 - 🚨 **着手前の最重要確認（データ実在性 × LLM hindsight）**: 現状の取得層 `data/news.py` は **RSS のみ**で、RSS は直近記事しか返さず
   **過去アーカイブを返さない**。M1/M2 は `--skip-news` で走っており、5 年分のニュース履歴は無い。
@@ -206,7 +212,8 @@ prediction-design §4 の「①②最優先」と M2 の評価限界（§4）に
   さらに Platt 較正＋HOLD を実装。結論＝accuracy では多数派に負ける／macro-F1 では balanced が全ベースラインに有意（既定は prev と並ぶ）／
   **較正・HOLD では macro-F1 は動かない**（FLAT collapse）。→ [m2-evaluation.md](m2-evaluation.md) §5・「限界・追加検証」。
 - **閾値 k** は分布を見て調整可（現状 k=0.5 で FLAT 43%）。`--label-mode fixed` でも比較できる。
-- **対象銘柄**は大型15銘柄（universe.yaml）。クロスセクション/ lead-lag を狙うなら銘柄数拡大が効く（M2.5 で前倒し可・API 不要）。
+- **対象銘柄**は大型30銘柄（universe.yaml・M2.5 で 15→30 に拡大）。M2 の数値（§4）は拡大前の 15 銘柄スナップショット。
+  30 は現在も上場する銘柄から選定＝survivorship bias あり（PoC では許容）。
 - **predictions テーブルの PK=(date,code)** はベースラインと本モデルで上書き衝突しうる。DB 保存を本格化するなら
   `model`/`run` 列の追加を検討（現状 train_baseline は DB 保存せずメトリクス出力のみ）。
 - **J-Quants 無料枠の遅延**が評価に与える影響は未確認（現状 yfinance で取得）。

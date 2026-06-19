@@ -59,6 +59,9 @@ python scripts/train_baseline.py --class-weight balanced --label-mode fixed
 
 # 確率較正(Platt)＋HOLD（確信度で棄権）のカバレッジ×macro-F1 分析
 python scripts/train_baseline.py --calibrate --class-weight balanced
+
+# クロスセクション（相対）予測: rank IC / ロングショート（universe 30銘柄）
+python scripts/train_cross_section.py
 ```
 
 結果の解釈は [docs/m2-evaluation.md](docs/m2-evaluation.md) を参照。
@@ -70,11 +73,12 @@ config/universe.yaml      銘柄・指標・RSS の定義
 src/flowsignal/
   config.py               パス・設定・universe 読み込み
   data/                   取得層（prices / market / news / storage）
-  features/               特徴量（technical / market / labels / build）
-  models/baseline.py      lightgbm 既定の薄いファクトリ
-  eval/                   評価（split / baselines / metrics）
+  features/               特徴量（technical / market / labels / build / cross_section）
+  models/baseline.py      lightgbm 分類器＋回帰（make_regressor）の薄いファクトリ
+  eval/                   評価（split / baselines / metrics / calibration / hold / cross_section_metrics）
 scripts/fetch_daily.py    日次取得エントリポイント
-scripts/train_baseline.py M2 学習〜評価の通し実行
+scripts/train_baseline.py M2/honest化/HOLD の通し実行（--calibrate）
+scripts/train_cross_section.py クロスセクション相対予測
 tests/                    pytest（特徴量のリーク制御・評価ロジック）
 docs/                     requirements / STATUS / prediction-design / m2-evaluation
 ```
@@ -85,7 +89,7 @@ docs/                     requirements / STATUS / prediction-design / m2-evaluat
 |---|---|---|
 | M1 | データ取得基盤 | ✅ 完了 |
 | M2 | テクニカルのみのベースラインML（方向予測＋評価） | ✅ 完了（honest 化済み: accuracy では多数派に負け、macro-F1 で balanced が全ベースラインに有意） |
-| M2.5 | HOLD＋確率較正・クロスセクション化・評価の honest 化（API 不要） | 🚧 進行中（honest 化・HOLD＋較正 ✅／残: クロスセクション） |
+| M2.5 | HOLD＋確率較正・クロスセクション化・評価の honest 化（API 不要） | ✅ 完了（3 手法とも実装。HOLD/較正・クロスセクションは negative＝価格後処理では edge 無し） |
 | M3 | LLM ニュース特徴量・適時開示(TDnet)の追加（改善幅を測定） | 未着手 |
 | M4 | バックテスト＋根拠説明 | 未着手 |
 | M5 | Streamlit ダッシュボード | 未着手 |

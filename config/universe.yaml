@@ -22,6 +22,23 @@ stocks:
   - { code: "6501", yf_symbol: "6501.T", name: "日立製作所" }
   - { code: "8058", yf_symbol: "8058.T", name: "三菱商事" }
   - { code: "4568", yf_symbol: "4568.T", name: "第一三共" }
+  # --- M2.5 でクロスセクション用に拡大（15→30銘柄, 2026-06-19）---
+  # 注: 現在も上場する大型株から選定（survivorship bias あり・PoC では許容）。
+  - { code: "6902", yf_symbol: "6902.T", name: "デンソー" }
+  - { code: "7267", yf_symbol: "7267.T", name: "本田技研工業" }
+  - { code: "6594", yf_symbol: "6594.T", name: "ニデック" }
+  - { code: "6981", yf_symbol: "6981.T", name: "村田製作所" }
+  - { code: "8316", yf_symbol: "8316.T", name: "三井住友フィナンシャルグループ" }
+  - { code: "8411", yf_symbol: "8411.T", name: "みずほフィナンシャルグループ" }
+  - { code: "8766", yf_symbol: "8766.T", name: "東京海上ホールディングス" }
+  - { code: "8001", yf_symbol: "8001.T", name: "伊藤忠商事" }
+  - { code: "8031", yf_symbol: "8031.T", name: "三井物産" }
+  - { code: "4502", yf_symbol: "4502.T", name: "武田薬品工業" }
+  - { code: "4519", yf_symbol: "4519.T", name: "中外製薬" }
+  - { code: "6367", yf_symbol: "6367.T", name: "ダイキン工業" }
+  - { code: "7741", yf_symbol: "7741.T", name: "HOYA" }
+  - { code: "9434", yf_symbol: "9434.T", name: "ソフトバンク" }
+  - { code: "6954", yf_symbol: "6954.T", name: "ファナック" }
 
 # 特徴量に使うマーケット指標・為替（yfinance シンボル）
 market:
