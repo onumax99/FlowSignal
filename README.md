@@ -80,7 +80,7 @@ scripts/fetch_daily.py    日次取得エントリポイント
 scripts/train_baseline.py M2/honest化/HOLD の通し実行（--calibrate）
 scripts/train_cross_section.py クロスセクション相対予測
 tests/                    pytest（特徴量のリーク制御・評価ロジック）
-docs/                     requirements / STATUS / prediction-design / m2-evaluation
+docs/                     requirements / STATUS / prediction-design / m2-evaluation / m3-design
 ```
 
 ## ロードマップ
