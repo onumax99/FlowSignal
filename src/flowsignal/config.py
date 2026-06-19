@@ -91,3 +91,12 @@ def jquants_credentials() -> tuple[str | None, str | None]:
         os.getenv("JQUANTS_MAIL_ADDRESS") or None,
         os.getenv("JQUANTS_PASSWORD") or None,
     )
+
+
+def anthropic_api_key() -> str | None:
+    """Claude API キーを環境変数から取得。未設定なら None。
+
+    M3（LLM ニュース/開示スコア化）で使用。`anthropic.Anthropic()` は
+    同じ `ANTHROPIC_API_KEY` を自動で読むため、本ヘルパは主に事前の有無チェック用。
+    """
+    return os.getenv("ANTHROPIC_API_KEY") or None
