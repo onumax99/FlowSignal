@@ -10,8 +10,8 @@
 
 - 最終更新: 2026-06-19
 - リポジトリ: https://github.com/onumax99/FlowSignal （`main` 直コミット運用・HTTPS）
-- 🚨 **このセッション終了時点でローカル `main` は `origin/main` より 3 コミット先行（未 push）**:
-  `b4920ca`(HOLD＋較正) / `607512c`(クロスセクション＋universe30) / `3a489f7`(M3 設計書)。
+- 🚨 **ローカル `main` に未 push コミットあり**（件数は `git log --oneline origin/main..main` で確認）。
+  直近は `f66747b`(M3 step① scaffold) / `456079a`(§6 実測確定) ＋ 本ハンドオフ更新コミット。
   **新セッションの最初に `git push origin main` する**（Claude 側からは push がブロックされるため手動実行が必要）。
 
 ---
@@ -20,8 +20,7 @@
 
 - **何を作っているか**: 日本株の**翌営業日の値動き方向**（UP / FLAT / DOWN ＋確信度）を、
   市場データの時系列 ML と LLM ニュース分析のハイブリッドで予測する PoC。対応環境は **Windows 一本化**。
-- **現在地**: **M1・M2・M2.5（評価 honest 化＋HOLD/較正＋クロスセクション）すべて完了。
-  次は M3（LLM ニュース特徴量・初の Claude API 課金）。** universe は 30 銘柄に拡大済み。
+- **現在地**: **M1・M2・M2.5 完了。M3 に着手中**＝**step ①（count_tokens 実測・$5 予算登録・TDnet 実在性決着）完了、次は step ②（`data/disclosure.py`＝TDnet 無料 forward 取得）**。詳細は §5。universe は 30 銘柄。
 - **M2 の結論（honest・M2.5 で確定）**: **accuracy では多数派(always-FLAT 43.4%)に有意に負ける**
   （accuracy は不均衡 3 クラスでは方向 skill を測れない）。本命の **macro-F1 では balanced(0.372)が
   全ベースライン（最強 prev-direction 0.345 含む）に日付ブロック bootstrap で有意**＝**方向 skill は弱いが本物**
@@ -29,7 +28,7 @@
 - **M2.5 の結論（honest・3 手法とも negative）**: HOLD＋確率較正は **macro-F1 を動かせず**（較正の argmax が FLAT collapse）、
   クロスセクション相対予測は **rank IC ≈ 0（CI が 0 跨ぎ・非有意）**。**価格・テクニカルの後処理/相対化では edge は作れない**ことを一貫確認
   → 新情報（M3）が本命。
-- **健全性**: `pytest` 全 76 件グリーン。リーク防止はテストで担保。**ローカル `main` に未 push の 3 コミットあり**（上記・要 `git push`）。
+- **健全性**: `pytest` 全 79 件グリーン。リーク防止はテストで担保。**ローカル `main` に未 push の 2 コミットあり**（上記・要 `git push`）。
 - **ゴールの考え方**: 「正確に当てる」ではなく「**ベースラインを有意に上回る傾きを、リークなく抽出できるか**」。
 
 ---
@@ -175,18 +174,27 @@ prediction-design §4 の「①②最優先」と M2 の評価限界（§4）に
 ### 次の本命: M3（LLM ニュース特徴量・適時開示）
 要件 §8.2 / prediction-design §3・§4③ を踏まえた具体化。**ここで初めて Claude API が課金対象**（M1/M2/M2.5 は無料）。
 M2.5 の 3 手法が negative だったため、**残るレバーは新情報のみ＝M3 がこの PoC の正念場**。
-**詳細設計は [m3-design.md](m3-design.md) に確定済み**（データ方針=forward-only 本筋／TDnet は開発用・スコア仕様・プロンプト・結合・評価・コスト見積もり）。
-**実装は実 API 課金の手前で停止中＝着手はユーザー合意・予算登録の後**。
+**詳細設計は [m3-design.md](m3-design.md) に確定済み**（forward-only 本筋・スコア仕様・プロンプト・結合・評価・コスト）。
 
-- 🚨 **着手前の最重要確認（データ実在性 × LLM hindsight）**: 現状の取得層 `data/news.py` は **RSS のみ**で、RSS は直近記事しか返さず
-  **過去アーカイブを返さない**。M1/M2 は `--skip-news` で走っており、5 年分のニュース履歴は無い。
-  → **「M2 と同じ walk-forward で M3 の改善幅を測る」には過去ニュースが必要**。設計前に次のどちらかを決めるが、
-  **(a) と (b) はリークの観点で等価でない**:
-  (a) 評価を「今から日次収集していく forward 区間」に限定、または (b) 履歴の取れるソースを確保
-  （**TDnet 適時開示は履歴取得が可能**で、§4③ の本命でもある）。
-  **(b) で履歴を得ても `claude-opus-4-8`（カットオフ 2026-01）に 2021〜2025 を採点させると hindsight が残る**ため、
-  構造的にリーク無しなのは**カットオフ後の forward 区間だけ**。→ **PoC の本筋は (a) forward-only**、(b) 履歴は
-  特徴量パイプラインの開発・デバッグ用（backtest 数値はリーク前提の参考値）と役割を分ける。
+#### 🟢 進捗・明日の再開ポイント（2026-06-19）
+
+- ✅ **step ①（課金前スキャフォールド＋count_tokens 実測）完了**: `config.anthropic_api_key()` / `pyproject` の `llm` extra（`anthropic` 0.111.0）/ `scripts/measure_tokens.py` / `tests/test_config.py`（pytest 計 **79 件緑**）。**ユーザーが $5 クレジット＋`.env`(ANTHROPIC_API_KEY) を用意済み**。count_tokens は**無料**で実行済み。
+  - 実測: 固定プレフィックス **745 tok**(Opus)/713(Sonnet・Haiku)＝**全モデルの cache 最小未満→prompt caching 不使用・Batch(50%)が主レバー**。可変入力 **~67 tok**（短サンプル・実記事で再測要）。1 記事 Opus **~$0.0091**。
+  - **予算 $5 を事前登録**: 履歴一括(6,000件)は全モデル赤字→**やらない**。**forward-only＋Batch** 確定。$5 runway は forward 100記事/日で Opus ~11日 / Sonnet ~18日 / Haiku ~55日（[m3-design.md](m3-design.md) §6）。
+- ✅ **TDnet 実在性 決着（2026-06-19 調査）**＝最大リスク解消。履歴/forward の取得経路:
+
+| 経路 | 履歴 | forward | コスト |
+|---|---|---|---|
+| release.tdnet.info（公式サイト） | ❌ 直近 **31日**のみ | ✅ 日次可 | **無料**（規約・構造変化に注意） |
+| J-Quants TDnet アドオン（2026-05-18 提供開始） | ✅ 5年＋CSV一括 | ✅ | **¥11,000/月**・Light 以上・**個人投資家限定** |
+| 公式 TDnet API（有料情報・B2B） | ✅ 5年 | ✅ | 有料 |
+
+  → **結論: forward は release.tdnet.info の無料31日窓で日次収集すれば足りる**。履歴一括はデータ側(¥11,000/月)＋Anthropic側($5 で赤字)の二重で割に合わず、かつ hindsight 汚染で参考値どまり→**やらない**。配管検証も無料の31日窓で十分。
+- ⏭️ **次（step ②）**: `data/disclosure.py` を **release.tdnet.info の無料取得**で実装。news と同じ共通スキーマ（`id, source, published, title, summary, link, fetched_at`）へ正規化＋**時点整合**（`published ≤ 大引け t`）のテスト。
+- ⏳ **明日の判断点**: (a) **無料スクレイピング** vs **¥11,000/月アドオン**（予算感では無料が本命）。(b) **モデル選定**（Opus/Sonnet/Haiku＝$5 runway 直結）は**実記事量が分かる step ② の後／step ③ の手前**で決める。
+- ⏳ **データ後に凍結（§5.1）**: N_min・評価日・カットオフバッファ幅は step ② で**材料イベント発生率**を実測してから事前登録する。
+
+> 以下は M3 着手前に確定した設計の背景（pre-register・リーク・モジュール）。
 - **成功基準を事前登録（pre-register）**: M2 で edge が薄い＋ hindsight リスクがあるため、着手前に合否を定義する。
   例「**材料のある日**条件で macro-F1 または rank IC の block-bootstrap CI 下限が prev-direction を上回る」。後から良い指標を選ばない。
   🆕 **安全策（[m3-design.md](m3-design.md) §5.1 で確定）**: ① 結論は **positive / negative / inconclusive(検定力不足) の3値**（サンプル不足を negative と書かない）。
@@ -210,9 +218,9 @@ M2.5 の 3 手法が negative だったため、**残るレバーは新情報の
     可能なら日付を伏せて採点。
 - **モデル**: 学習するのは引き続き LightGBM のみ。LLM は**推論専用**（ファインチューニングしない）。
   既定 `claude-opus-4-8`、コスト重視 `claude-sonnet-4-6`、大量スコア化は `claude-haiku-4-5`。
-- **コスト最適化**: ① Batch API（50%引・日次バッチと好相性）② prompt caching（指示文＋few-shot を固定プレフィックス化）
-  ③ モデル階層化。**見積もりは2種類を分ける**: backtest は「過去コーパス一括採点（記事数×トークンの一回コスト）」、
-  運用は「日次 forward コスト（≈15銘柄/日 $0.5〜1.5）」。実数は着手時に `messages.count_tokens` で確定。
+- **コスト最適化（step① で実測確定済み・[m3-design.md](m3-design.md) §6）**: ① **Batch API（50%引）が主レバー**。
+  ② prompt caching は**プレフィックスが cache 最小未満のため不使用**。③ モデル階層化はユーザー判断（runway 直結）。
+  実測 1 記事 Opus ~$0.0091／forward は Batch で Opus ~$0.45/日（100記事/日）。**履歴一括は $5 予算で赤字→やらない**。
 
 ### その先（prediction-design 参照・合意後）
 - **lead-lag**: 銘柄間 lead-lag（市場中立化残差）。per-target モデルや銘柄数拡大とセット。②③の枠の「一特徴」として。
